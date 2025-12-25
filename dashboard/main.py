@@ -1143,33 +1143,32 @@ python api/main.py
                             
                             st.write(f"**Path:** {' → '.join(recommended.get('path', []))}")
                             st.write(f"**Route Score:** {recommended.get('score', 0):.2f}/1.0")
+                            # Display alternative routes
+                            alternatives = result.get('alternative_routes', [])
+                            if alternatives:
+                                st.subheader("Alternative Routes")
                                 
-                                # Display alternative routes
-                                alternatives = result.get('alternative_routes', [])
-                                if alternatives:
-                                    st.subheader("Alternative Routes")
+                                for i, route in enumerate(alternatives, 1):
+                                    status = f"**#{i}**"
                                     
-                                    for i, route in enumerate(alternatives, 1):
-                                        status = f"**#{i}**"
-                                        
-                                        with st.expander(f"{status} {route.get('route_id', 'Unknown')} - Score: {route.get('score', 0):.2f}"):
-                                            col1, col2, col3 = st.columns(3)
-                                            with col1:
-                                                st.write(f"**Distance:** {route.get('distance', 0):.1f} km")
-                                            with col2:
-                                                st.write(f"**Time:** {route.get('estimated_time', 0)} min")
-                                            with col3:
-                                                congestion = route.get('congestion_level', 0)
-                                                st.write(f"**Congestion:** Level {congestion}/5")
-                                            st.write(f"**Path:** {' → '.join(route.get('path', []))}")
+                                    with st.expander(f"{status} {route.get('route_id', 'Unknown')} - Score: {route.get('score', 0):.2f}"):
+                                        col1, col2, col3 = st.columns(3)
+                                        with col1:
+                                            st.write(f"**Distance:** {route.get('distance', 0):.1f} km")
+                                        with col2:
+                                            st.write(f"**Time:** {route.get('estimated_time', 0)} min")
+                                        with col3:
+                                            congestion = route.get('congestion_level', 0)
+                                            st.write(f"**Congestion:** Level {congestion}/5")
+                                        st.write(f"**Path:** {' → '.join(route.get('path', []))}")
                                 
-                                render_route_map(
-                                    start_location,
-                                    end_location,
-                                    recommended,
-                                    alternatives,
-                                    sensors_data
-                                )
+                            render_route_map(
+                                start_location,
+                                end_location,
+                                recommended,
+                                alternatives,
+                                sensors_data
+                            )
                             
                         else:
                             st.error("Could not calculate route.")
