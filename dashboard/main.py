@@ -108,66 +108,174 @@ ADDITIONAL_LOCATIONS = {
 
 class TrafficDashboard:
     def __init__(self):
-        self.api_base_url = API_BASE_URL
-        self.session = requests.Session()
+        # Simulate data generation
+        self.sensor_locations = [
+            "MG Road", "Hosur Road", "Indiranagar 100ft Road", "Outer Ring Road",
+            "Jayanagar 4th Block", "Bellary Road", "Koramangala 80ft Road", "Bannerghatta Road"
+        ]
+        self.sensor_ids = [f"T{i:03d}" for i in range(1, 9)]
+        self.road_types = ["arterial", "highway", "collector", "arterial", "local", "highway", "collector", "arterial"]
+        
+        # Sensor coordinates
+        self.sensor_coords = {
+            "T001": {"lat": 12.9716, "lng": 77.5946},
+            "T002": {"lat": 12.9352, "lng": 77.6245},
+            "T003": {"lat": 12.9784, "lng": 77.6408},
+            "T004": {"lat": 12.9698, "lng": 77.7500},
+            "T005": {"lat": 12.9308, "lng": 77.5838},
+            "T006": {"lat": 13.0359, "lng": 77.5970},
+            "T007": {"lat": 12.9591, "lng": 77.6974},
+            "T008": {"lat": 12.8452, "lng": 77.6602}
+        }
         
     def check_api_health(self) -> bool:
-        """Check if the API is healthy"""
-        try:
-            response = self.session.get(f"{self.api_base_url}/health", timeout=5)
-            return response.status_code == 200
-        except:
-            return False
+        """Always return True for standalone mode"""
+        return True
     
     def get_current_traffic(self) -> Optional[Dict]:
-        """Get current traffic data from API"""
-        try:
-            response = self.session.get(f"{self.api_base_url}/api/traffic/current", timeout=5)
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except:
-            return None
+        """Generate current traffic data locally"""
+        import random
+        from datetime import datetime
+        
+        current_traffic = []
+        for i, sensor_id in enumerate(self.sensor_ids):
+            base_flow = random.randint(200, 1500)
+            # Simple time-based factor
+            hour = datetime.now().hour
+            time_factor = 1.8 if hour in [7,8,9,17,18,19] else 1.2
+            flow_rate = int(base_flow * time_factor * random.uniform(0.8, 1.2))
+            
+            # Derived metrics
+            congestion = 1
+            if flow_rate > 1200: congestion = 5
+            elif flow_rate > 1000: congestion = 4
+            elif flow_rate > 800: congestion = 3
+            elif flow_rate > 500: congestion = 2
+            
+            mock_data = {
+                "sensor_id": sensor_id,
+                "location": self.sensor_locations[i],
+                "road_type": self.road_types[i],
+                "vehicle_count": random.randint(10, 120),
+                "flow_rate": flow_rate,
+                "average_speed": max(10, random.randint(20, 70) - (congestion * 10)),
+                "congestion_level": congestion,
+                "timestamp": datetime.now().isoformat()
+            }
+            current_traffic.append(mock_data)
+            
+        return {
+            "timestamp": time.time(),
+            "sensors_count": len(current_traffic),
+            "traffic_data": current_traffic
+        }
     
     def get_analytics_summary(self) -> Optional[Dict]:
-        """Get analytics summary from API"""
-        try:
-            response = self.session.get(f"{self.api_base_url}/api/analytics/summary", timeout=5)
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except:
-            return None
+        """Calculate summary from generated data"""
+        data = self.get_current_traffic()
+        if not data: return None
+        
+        traffic_data = data["traffic_data"]
+        total_vehicles = sum(d["vehicle_count"] for d in traffic_data)
+        avg_speed = sum(d["average_speed"] for d in traffic_data) / len(traffic_data)
+        avg_congestion = sum(d["congestion_level"] for d in traffic_data) / len(traffic_data)
+        
+        congestion_counts = {}
+        for d in traffic_data:
+            l = d["congestion_level"]
+            congestion_counts[l] = congestion_counts.get(l, 0) + 1
+            
+        problematic = [d for d in traffic_data if d["congestion_level"] >= 4]
+        
+        return {
+            "timestamp": time.time(),
+            "summary": {
+                "total_sensors": len(traffic_data),
+                "total_vehicles": total_vehicles,
+                "average_speed": round(avg_speed, 2),
+                "average_congestion": round(avg_congestion, 2),
+                "congestion_distribution": congestion_counts,
+                "problematic_areas": len(problematic)
+            },
+            "problematic_sensors": problematic
+        }
     
     def get_current_alerts(self) -> Optional[Dict]:
-        """Get current alerts from API"""
-        try:
-            response = self.session.get(f"{self.api_base_url}/api/alerts/current", timeout=5)
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except:
-            return None
+        """Generate alerts based on generated data"""
+        data = self.get_current_traffic()
+        alerts = []
+        if data:
+            for d in data["traffic_data"]:
+                if d["congestion_level"] >= 4:
+                    alerts.append({
+                        "type": "congestion_alert",
+                        "sensor_id": d["sensor_id"],
+                        "location": d["location"],
+                        "severity": "high" if d["congestion_level"] == 5 else "medium",
+                        "message": f"High congestion generated at {d['location']}",
+                        "timestamp": d["timestamp"]
+                    })
+        return {"alerts": alerts}
     
     def get_sensors_list(self) -> Optional[Dict]:
-        """Get sensors list from API"""
-        try:
-            response = self.session.get(f"{self.api_base_url}/api/sensors/list", timeout=5)
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except:
-            return None
+        """Return static list of sensors"""
+        sensors = []
+        for i, sid in enumerate(self.sensor_ids):
+            sensors.append({
+                "sensor_id": sid,
+                "location": self.sensor_locations[i],
+                "road_type": self.road_types[i],
+                "coordinates": self.sensor_coords[sid]
+            })
+        return {"sensors": sensors}
 
     def get_prediction_map(self) -> Optional[Dict]:
-        """Get per-sensor prediction data for map overlays."""
-        try:
-            response = self.session.get(f"{self.api_base_url}/api/traffic/predictions/map", timeout=10)
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except:
-            return None
+        """Generate mock prediction data"""
+        import random
+        data = self.get_current_traffic()
+        if not data: return None
+        
+        predictions = []
+        for d in data["traffic_data"]:
+            # Predict slightly different from current
+            pred_congestion = min(5, max(1, d["congestion_level"] + random.choice([-1, 0, 1])))
+            predictions.append({
+                "sensor_id": d["sensor_id"],
+                "location": d["location"],
+                "predicted_congestion_level": pred_congestion,
+                "predicted_flow": int(d["flow_rate"] * random.uniform(0.9, 1.1)),
+                "traffic_expected": pred_congestion >= 4,
+                "model_confidence": random.uniform(0.7, 0.95),
+                "prediction_timestamp": datetime.now().isoformat()
+            })
+            
+        return {"predictions": predictions}
+        
+    def mock_route_optimization(self, start: str, end: str, start_coords: Dict, end_coords: Dict) -> Dict:
+        """Helper to generate a mock route"""
+        # Simple Mock Calculation
+        import math
+        dist = math.sqrt((start_coords['lat'] - end_coords['lat'])**2 + (start_coords['lng'] - end_coords['lng'])**2) * 111 # rough km
+        
+        return {
+            "recommended_route": {
+                "distance": round(dist * 1.2, 2),
+                "estimated_time": int(dist * 2.5),
+                "congestion_level": 2,
+                "path": [start, "Intermediate Waypoint", end],
+                "score": 0.92
+            },
+            "alternative_routes": [
+                {
+                    "route_id": "Route B",
+                    "distance": round(dist * 1.5, 2),
+                    "estimated_time": int(dist * 3.5),
+                    "congestion_level": 4,
+                    "path": [start, "Traffic Hotspot", end],
+                    "score": 0.65
+                }
+            ]
+        }
 
 def create_traffic_heatmap(traffic_data: List[Dict]) -> go.Figure:
     """Create a traffic congestion heatmap"""
@@ -992,38 +1100,49 @@ python api/main.py
                 if start_location == end_location:
                     st.error("Start and end locations cannot be the same.")
                 else:
-                    # Call API for route optimization
-                    with st.spinner("Optimizing route based on current traffic conditions..."):
-                        try:
-                            response = dashboard.session.post(
-                                f"{dashboard.api_base_url}/api/routes/optimize",
-                                json={
-                                    "start_location": start_location,
-                                    "end_location": end_location,
-                                    "preferred_route_type": route_type
-                                },
-                                timeout=10
-                            )
+                    # Mock Route Optimization for Standalone Mode
+                    with st.spinner("Calculating optimal route (Standalone Mode)..."):
+                        time.sleep(1.5) # Simulate processing
+                        
+                        # Get coords
+                        start_coords = None
+                        end_coords = None
+                        
+                        # Simple lookup from sensor data (in a real app we'd need a full map or geocoder)
+                        # We'll just define a fallback
+                        default_latlng = {"lat": 12.9716, "lng": 77.5946}
+                        
+                        # Look up in sensors
+                        s_list = dashboard.get_sensors_list()
+                        if s_list:
+                            for s in s_list.get("sensors", []):
+                                if s["location"] == start_location: start_coords = s["coordinates"]
+                                if s["location"] == end_location: end_coords = s["coordinates"]
+                        
+                        if not start_coords: start_coords = ADDITIONAL_LOCATIONS.get(start_location, default_latlng)
+                        if not end_coords: end_coords = ADDITIONAL_LOCATIONS.get(end_location, default_latlng)
+
+                        result = dashboard.mock_route_optimization(start_location, end_location, start_coords, end_coords)
+                        
+                        # Simulate success response structure
+                        if result:
+                            st.success("Route optimization completed!")
                             
-                            if response.status_code == 200:
-                                result = response.json()
-                                st.success("Route optimization completed!")
-                                
-                                # Display recommended route
-                                st.subheader("Recommended Route")
-                                recommended = result.get('recommended_route', {})
-                                
-                                col1, col2, col3 = st.columns(3)
-                                with col1:
-                                    st.metric("Distance", f"{recommended.get('distance', 0):.1f} km")
-                                with col2:
-                                    st.metric("Estimated Time", f"{recommended.get('estimated_time', 0)} min")
-                                with col3:
-                                    congestion = recommended.get('congestion_level', 0)
-                                    st.metric("Congestion", f"Level {congestion}/5")
-                                
-                                st.write(f"**Path:** {' → '.join(recommended.get('path', []))}")
-                                st.write(f"**Route Score:** {recommended.get('score', 0):.2f}/1.0")
+                            # Display recommended route
+                            st.subheader("Recommended Route")
+                            recommended = result.get('recommended_route', {})
+                            
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Distance", f"{recommended.get('distance', 0):.1f} km")
+                            with col2:
+                                st.metric("Estimated Time", f"{recommended.get('estimated_time', 0)} min")
+                            with col3:
+                                congestion = recommended.get('congestion_level', 0)
+                                st.metric("Congestion", f"Level {congestion}/5")
+                            
+                            st.write(f"**Path:** {' → '.join(recommended.get('path', []))}")
+                            st.write(f"**Route Score:** {recommended.get('score', 0):.2f}/1.0")
                                 
                                 # Display alternative routes
                                 alternatives = result.get('alternative_routes', [])
@@ -1052,11 +1171,8 @@ python api/main.py
                                     sensors_data
                                 )
                             
-                            else:
-                                st.error(f"Failed to optimize route: {response.status_code}")
-                        
-                        except Exception as e:
-                            st.error(f"Error optimizing route: {str(e)}")
+                        else:
+                            st.error("Could not calculate route.")
     
     elif page == "Video Analysis":
         st.header("Video Analysis")
